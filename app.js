@@ -202,12 +202,15 @@
           bar.style.opacity = power;
           bar.style.transform = `scaleX(${lerp(.7,1,power)})`;
         });
+        const illumination = ease(range(scrollProgress,.19,.285));
+        const logoCore = 1-illumination;
         const logoPower = ease(range(scrollProgress,.137,.18));
         const logoFade = 1-ease(range(journeyProgress,.285,.355));
         show(ignitionLogo,logoPower*logoFade);
-        ignitionLogo.style.transform = `translate(-50%,-50%) scale(${lerp(.97,1,logoPower)})`;
+        // Match the printed mark exactly; hand its sharp edges back to the photo as it lights up.
+        ignitionLogo.style.setProperty('--logo-core',logoCore);
         logoSheen.style.backgroundPosition = `${lerp(180,-80,ease(range(scrollProgress,.17,.25)))}% 0`;
-        show(logoSheen,ease(range(scrollProgress,.17,.195))*(1-ease(range(scrollProgress,.24,.265))));
+        show(logoSheen,logoCore*ease(range(scrollProgress,.17,.195))*(1-ease(range(scrollProgress,.24,.265))));
         const spill = ease(range(scrollProgress,.185,.285));
         const spillFade = 1-ease(range(journeyProgress,.34,.46));
         const lightPower = ease(range(scrollProgress,.174,.215));
@@ -223,7 +226,6 @@
         ignitionWave.style.transform = `translate(-50%,-50%) scale(${lerp(.015,1.1,spill)})`;
         show(ignitionWave,1-ease(range(scrollProgress,.245,.30)));
         show(logoSource,ease(range(scrollProgress,.178,.22)));
-        const illumination = ease(range(scrollProgress,.19,.285));
         show(silhouette,.46*(1-illumination));
         show(render,.10+.90*illumination);
         render.style.maskImage = illumination < .999 ? `radial-gradient(circle at 52.9315% 19.73895%,#000 ${illumination*120}%,transparent ${illumination*150+8}%),linear-gradient(112deg,#000 16%,transparent 40%,transparent 64%,#000 88%)` : 'none';

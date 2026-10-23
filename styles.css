@@ -415,9 +415,10 @@
 @media(min-width:761px) and (max-height:700px){.series-page .journey-family-heading{top:18%}.series-page .journey-family-heading .eyebrow{margin-bottom:8px}.series-page .journey-family-heading h2{font-size:36px}.series-page .journey-controls{bottom:6%}.series-page .journey-controls .finish-hint{display:none}}
 
 /* Ignition: three individual LEDs, a luminous wordmark, then a canvas-wide spill. */
-.series-page .ignition-logo{position:absolute;left:52.9315%;top:19.73895%;width:22.39318%;height:2.69695%;transform:translate(-50%,-50%);z-index:9;opacity:0;visibility:hidden;pointer-events:none;isolation:isolate}
-.series-page .ignition-logo>img{width:100%;height:100%;filter:drop-shadow(0 0 4px #fff) drop-shadow(0 0 18px #f6f6f6) drop-shadow(0 0 55px #e4e4e4cc)}
-.series-page .ignition-logo-sheen{position:absolute;inset:0;opacity:0;mask:url('assets/l3vel3-logo.svg') center/100% 100% no-repeat;background:linear-gradient(110deg,transparent 35%,#fff 48%,transparent 61%);background-size:250% 100%;mix-blend-mode:screen}
+.series-page .ignition-logo{position:absolute;left:52.978515625%;top:19.7265625%;width:22.55859375%;height:2.734375%;transform:translate(-50%,-50%);z-index:9;opacity:0;visibility:hidden;pointer-events:none;isolation:isolate}
+.series-page .ignition-logo::before{content:'';position:absolute;inset:0;background:#fff;mask:url('assets/clipper-logo-light.webp') center/100% 100% no-repeat;filter:blur(3px) drop-shadow(0 0 18px #fff) drop-shadow(0 0 55px #ffffffcc);opacity:.65}
+.series-page .ignition-logo>img{width:100%;height:100%;opacity:var(--logo-core,1);filter:drop-shadow(0 0 3px #fff)}
+.series-page .ignition-logo-sheen{position:absolute;inset:0;opacity:0;mask:url('assets/clipper-logo-light.webp') center/100% 100% no-repeat;background:linear-gradient(110deg,transparent 35%,#fff 48%,transparent 61%);background-size:250% 100%;mix-blend-mode:screen}
 .series-page .ignition-source{position:absolute;left:8%;right:8%;bottom:-4px;height:1px;opacity:0;background:linear-gradient(90deg,transparent,#f5f5f5ba,transparent);box-shadow:0 2px 30px 9px #e6e6e69c;filter:blur(.5px)}
 .series-page .ignition-light{position:absolute;inset:0;z-index:2;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden}
 .series-page .ignition-beam{position:absolute;left:var(--emission-x,50%);top:var(--emission-y,25%);width:175vw;height:120svh;transform:translateX(-50%) scale(.3,.25);transform-origin:50% 0;background:conic-gradient(from 144deg at 50% 0%,transparent 0deg,#e5e5e530 12deg,#f7f7f78c 36deg,#e5e5e530 60deg,transparent 72deg);mask-image:linear-gradient(#000,transparent 85%)}
