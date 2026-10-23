@@ -226,7 +226,7 @@
 .series-page .intro-stage{perspective:1400px}
 .series-page .intro-stage .hero-product{left:50%;top:50%;z-index:6;transform-origin:center;pointer-events:none}
 .series-page .hero-render{height:100%;width:100%;opacity:0}
-.series-page .hero-silhouette{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.58;pointer-events:none}
+.series-page .hero-silhouette{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.46;pointer-events:none}
 .series-page .intro-stage .intro-prompt{bottom:2.5%;flex-direction:row}
 .series-page .intro-prompt .prompt-line{width:20px;height:1px;background:linear-gradient(90deg,transparent,#a49d92)}
 .series-page .product-visual{position:relative;width:100%;height:100%;perspective:900px;transform-style:preserve-3d;will-change:transform;isolation:isolate}

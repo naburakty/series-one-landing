@@ -144,10 +144,12 @@
         element.style.transform = `translate3d(${(x-50)*width/100}px,${(y-50)*height/100}px,0) translate(-50%,-50%) rotate(${rotation}deg) scale(${scale})`;
       };
       const apply = (scrollProgress) => {
+        // Reserve a fully illuminated close-up before beginning the travelling camera.
+        const journeyProgress = .20+.80*range(scrollProgress,.32,1);
         // Slow the visual journey around complete headlines while the page keeps scrolling.
-        let readingProgress = scrollProgress;
+        let readingProgress = journeyProgress;
         for (const center of [.368,.512,.648]) {
-          const t = (scrollProgress-center)/.06;
+          const t = (journeyProgress-center)/.06;
           if (Math.abs(t)<1) {
             readingProgress = center+.06*(t-.65*t*(1-t*t)**2);
             break;
@@ -157,13 +159,14 @@
         const p = range(readingProgress,.20,1);
         // Begin close enough to fill the canvas, then rejoin the established headline view.
         const openingScale = Math.min(height*.88/(heroHeight*.9206),width*.76/(heroHeight*(2/3)*.4287));
-        const pullback = ease(range(scrollProgress,.205,.355));
-        const x = lerp(50,sample(p,'x'),pullback), y = lerp(48,sample(p,'y'),pullback);
+        const pullback = ease(range(scrollProgress,.33,.455));
+        const x = lerp(50,sample(p,'x'),pullback);
+        const y = lerp(48,sample(p,'y'),pullback)+(narrow?2*Math.sin(Math.PI*pullback):0);
         const scale = lerp(openingScale,sample(p,'s'),pullback), rotation = lerp(0,sample(p,'r'),pullback);
         const family = ease(range(p,.62,.85)), open = range(p,0,.27);
         place(product,x,y,scale,rotation);
         product.style.opacity = '1';
-        const lightHandoff = 1-ease(range(scrollProgress,.265,.305));
+        const lightHandoff = 1-ease(range(journeyProgress,.265,.305));
         show(led,lightHandoff);
         ledBars.forEach((bar,i) => {
           const power = ease(range(scrollProgress,.012+i*.04,.036+i*.04));
@@ -171,13 +174,13 @@
           bar.style.transform = `scaleX(${lerp(.7,1,power)})`;
         });
         const logoPower = ease(range(scrollProgress,.137,.18));
-        const logoFade = 1-ease(range(scrollProgress,.285,.355));
+        const logoFade = 1-ease(range(journeyProgress,.285,.355));
         show(ignitionLogo,logoPower*logoFade);
         ignitionLogo.style.transform = `translate(-50%,-50%) scale(${lerp(.97,1,logoPower)})`;
         logoSheen.style.backgroundPosition = `${lerp(180,-80,ease(range(scrollProgress,.17,.25)))}% 0`;
         show(logoSheen,ease(range(scrollProgress,.17,.195))*(1-ease(range(scrollProgress,.24,.265))));
         const spill = ease(range(scrollProgress,.185,.285));
-        const spillFade = 1-ease(range(scrollProgress,.34,.46));
+        const spillFade = 1-ease(range(journeyProgress,.34,.46));
         const lightPower = ease(range(scrollProgress,.174,.215));
         show(ignitionLight,lightPower*spillFade);
         const sourceY = y + (.1973895-.5)*heroHeight*scale/height*100;
@@ -192,9 +195,9 @@
         show(ignitionWave,1-ease(range(scrollProgress,.245,.30)));
         show(logoSource,ease(range(scrollProgress,.178,.22)));
         const illumination = ease(range(scrollProgress,.19,.285));
-        show(silhouette,.58*(1-illumination));
-        show(render,illumination);
-        render.style.maskImage = illumination < .999 ? `radial-gradient(circle at 52.9315% 19.73895%,#000 ${illumination*120}%,transparent ${illumination*150+8}%)` : 'none';
+        show(silhouette,.46*(1-illumination));
+        show(render,.10+.90*illumination);
+        render.style.maskImage = illumination < .999 ? `radial-gradient(circle at 52.9315% 19.73895%,#000 ${illumination*120}%,transparent ${illumination*150+8}%),linear-gradient(112deg,#000 16%,transparent 40%,transparent 64%,#000 88%)` : 'none';
         show(header,ease(range(open,.22,.38)),true);
         show(copy,ease(range(open,.43,.68))*(1-ease(range(p,.26,.33))),true);
         show(detail,ease(range(p,.30,.36))*(1-ease(range(p,.43,.50))));
@@ -209,7 +212,7 @@
         halo.style.opacity = ease(range(open,.13,.45)) * lerp(.7,.28,family);
         halo.style.transform = `translate3d(${(x-50)*width/100}px,${(y-50)*height/100}px,0) translate(-50%,-50%)`;
         show(sideNote,ease(range(open,.55,.76))*(1-ease(range(p,.27,.34))));
-        const captionOpacity = ease(range(open,.13,.28));
+        const captionOpacity = ease(range(scrollProgress,.29,.32));
         show(caption,captionOpacity,true);
         progress.style.transform = `scaleX(${scrollProgress})`;
         prompt.style.setProperty('--prompt-intensity',1-ease(range(scrollProgress,.205,.235)));

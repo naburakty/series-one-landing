@@ -1,4 +1,4 @@
-/* Light checkpoint resistance, with uninterrupted input and directional completion. */
+/* Checkpoint-stop trial: decelerate, land, pause briefly, then release. */
 (() => {
   window.SeriesScrollCheckpoints = (host, { signal, reducedMotion = false } = {}) => {
     if (!host || signal?.aborted) return () => {};
@@ -11,18 +11,17 @@
     const disabled = () => !host.isConnected || host.classList.contains('is-preparing')
       || document.hidden || motion.matches || host.reducedMotion || reducedMotion
       || window.Shopify?.designMode || host.querySelector('dialog[open]');
-    const radius = () => Math.min(innerHeight * .22, 180);
     const phone = () => matchMedia('(max-width:760px), (pointer:coarse)').matches;
-    let timer = 0, frame = 0, armed = false, moved = false, touching = false, pointerDown = false;
-    let inputTime = 0, scrollTime = 0, latched = null, touchOrigin = null, touchY = 0, direction = 0;
-    let cachedPoints = null, measuredAt = 0, lastY = scrollY;
+    let timer = 0, frame = 0, momentum = 0, armed = false, moved = false, touching = false, pointerDown = false;
+    let inputTime = 0, scrollTime = 0, direction = 0, lastWheel = 0, lastY = scrollY;
+    let served = null, landing = null, holdUntil = 0, touch = null;
+    let cachedPoints = null, measuredAt = 0;
     const invalidate = () => { cachedPoints = null; };
-
     const cancel = () => {
-      clearTimeout(timer);cancelAnimationFrame(frame);
-      timer = frame = 0;
+      clearTimeout(timer);cancelAnimationFrame(frame);cancelAnimationFrame(momentum);
+      timer = frame = momentum = 0;
     };
-    const release = () => { cancel();armed = moved = false;direction = 0; };
+    const release = () => { cancel();landing = null;holdUntil = 0;armed = moved = false;direction = 0; };
     const eligible = target => {
       if (disabled() || !(target instanceof Element) || !host.contains(target)) return false;
       if (target.closest('input,textarea,select,[contenteditable="true"],[role="slider"],video,audio')) return false;
@@ -67,10 +66,10 @@
       if (intro && intro.offsetHeight > innerHeight * 1.5) {
         const top = intro.getBoundingClientRect().top + scrollY, travel = intro.offsetHeight - innerHeight;
         // Finished lighting, hero, macro, system, and the complete four-tool arrangement.
-        [.20, .368, .512, .648, .94].forEach(progress => points.push({
+        [.31, .4628, .5852, .7008, .949].forEach(progress => points.push({
           key: `intro-${progress}`, y: clamp(top + travel * progress),
-          reading: [.368,.512,.648].includes(progress),
-          ...(progress === .94 ? { completeFrom: clamp(top + travel * .80) } : {})
+          reading: [.4628,.5852,.7008].includes(progress),
+          ...(progress === .949 ? { completeFrom: clamp(top + travel * .83) } : {})
         }));
       }
       add('story', host.querySelector('.manifesto'), narrow
@@ -99,122 +98,134 @@
       cachedPoints = points.sort((a, b) => a.y - b.y);
       return cachedPoints;
     };
-    const settle = () => {
-      timer = 0;
-      if (!armed || !moved || touching || pointerDown || disabled()) return;
-      const idle = now() - Math.max(inputTime, scrollTime);
-      const quiet = phone() ? 300 : 240;
-      if (idle < quiet) { timer = setTimeout(settle, quiet - idle);return; }
-      const y = scrollY;
-      const points = checkpoints();
-      // Finish forward after 80% of a transition; never pull against the last gesture.
-      const next = points.find(point => point.y > y + 2);
-      const previous = next ? points[points.indexOf(next) - 1] : null;
-      const start = previous?.y ?? 0;
-      const complete = direction > 0 && next && next.key !== latched?.key && (
-        next.completeFrom !== undefined ? y >= next.completeFrom
-          : y >= start + (next.y - start) * .80
-      );
-      const nearby = points.filter(point => point.key !== latched?.key
-        && (point.y - y) * direction >= -2 && Math.abs(point.y - y) <= (point.reading
-          ? Math.min(innerHeight * .30,240) : phone() ? Math.min(innerHeight * .14,110) : radius()));
-      nearby.sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y));
-      const target = complete ? next : nearby[0];
-      armed = false;
-      if (!target) return;
-      latched = target;
-      if (Math.abs(target.y - y) < 2) return;
-      const started = now();
-      const duration = phone() ? Math.min(520,Math.max(220,Math.abs(target.y-y)*.75))
-        : Math.min(1000, Math.max(260, Math.abs(target.y - y) * 1.1));
+    const maxY = () => Math.max(0,document.documentElement.scrollHeight-innerHeight);
+    const write = y => window.scrollTo({ top: Math.max(0,Math.min(maxY(),y)), behavior: 'instant' });
+    const targetFor = delta => {
+      const points = checkpoints().filter(point => point.key !== served?.key && (point.y-scrollY)*Math.sign(delta)>2);
+      return delta>0 ? points[0] : points[points.length-1];
+    };
+    const land = target => {
+      cancel();armed = false;landing = target;
+      const from = scrollY, started = now();
+      const duration = Math.min(phone()?440:520,Math.max(180,Math.abs(target.y-from)*.75));
       const tick = time => {
-        if (disabled() || touching || pointerDown) { release();return; }
-        const progress = Math.min(1, (time - started) / duration);
-        window.scrollTo({ top: y + (target.y - y) * (1 - (1 - progress) ** 3), behavior: 'instant' });
-        frame = progress < 1 ? requestAnimationFrame(tick) : 0;
+        if(disabled() || pointerDown){release();return;}
+        const t = Math.min(1,(time-started)/duration);
+        write(from+(target.y-from)*(1-(1-t)**3));
+        if(t<1) frame=requestAnimationFrame(tick);
+        else {frame=0;served=target;landing=null;holdUntil=now()+180;}
       };
-      frame = requestAnimationFrame(tick);
+      frame=requestAnimationFrame(tick);
     };
-    const intent = target => {
-      const alreadyMoved = armed && moved;
-      cancel();
-      if (!eligible(target)) { armed = moved = false;return false; }
-      armed = true;inputTime = now();
-      moved = alreadyMoved;
-      if (moved && !touching && !pointerDown) timer = setTimeout(settle, 240);
-      return true;
+    const advance = delta => {
+      if(landing || now()<holdUntil) return;
+      const target = targetFor(delta), distance = target ? Math.abs(target.y-scrollY) : Infinity;
+      if(target && distance<=Math.max(28,Math.abs(delta)*1.2)){land(target);return;}
+      const zone = Math.min(innerHeight*.36,280);
+      const gain = distance<zone ? .35+.65*distance/zone : 1;
+      write(scrollY+delta*gain);
     };
-    listen(window, 'wheel', event => {
-      if (event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) { release();return; }
-      if (pointerDown || touching || !intent(event.target)) return;
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1);
-      direction = Math.sign(delta);
-      if (!event.cancelable || event.defaultPrevented) return;
-      const y = scrollY;
-      // Reading views get firmer resistance; every event still advances and flicks pass.
-      const reduction = Math.max(0, ...checkpoints().map(point => {
-        const zone = Math.min(innerHeight * (point.reading ? .46 : .38),point.reading ? 380 : 320);
-        const distance = Math.abs(point.y - y);
-        const strength = distance < zone ? (1 - (distance / zone) ** 2) ** 2 : 0;
-        return Math.min(Math.abs(delta)*(point.reading ? .60 : .38)*strength,point.reading ? 72 : 44);
-      }));
-      if (reduction < .25) return;
-      const top = Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight,
-        y + delta - direction * reduction));
-      // Only replace an event when it can actually advance the document.
-      if (Math.abs(top - y) < .5) return;
+    const settle = () => {
+      timer=0;
+      if(!armed || !moved || touching || pointerDown || landing || momentum || disabled()) return;
+      const quiet=180, idle=now()-Math.max(inputTime,scrollTime);
+      if(idle<quiet){timer=setTimeout(settle,quiet-idle);return;}
+      const target=targetFor(direction), points=checkpoints();
+      if(!target){armed=false;return;}
+      const index=points.indexOf(target), previous=points[index-1];
+      const from=previous?.y ?? 0;
+      const complete=direction>0 && scrollY>=(target.completeFrom ?? from+(target.y-from)*.8);
+      if(complete || Math.abs(target.y-scrollY)<=Math.min(innerHeight*.30,240)) land(target);
+      else armed=false;
+    };
+    const schedule = () => {clearTimeout(timer);timer=setTimeout(settle,180);};
+    listen(window,'wheel',event => {
+      if(disabled() || event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX)>Math.abs(event.deltaY)
+        || pointerDown || touching || !eligible(event.target) || event.defaultPrevented){release();return;}
+      const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?innerHeight:1), sign=Math.sign(delta);
+      const fresh=now()-lastWheel>160, reverse=direction && sign!==direction;
+      lastWheel=now();
+      if(reverse || fresh) release();
+      if(reverse && served && Math.abs(scrollY-served.y)>4) served=null;
+      cancelAnimationFrame(momentum);momentum=0;
+      direction=sign;inputTime=now();armed=true;clearTimeout(timer);
+      if(!event.cancelable){release();return;}
+      const target=targetFor(delta), distance=target?Math.abs(target.y-scrollY):Infinity;
+      if(landing || now()<holdUntil || distance<=Math.max(Math.min(innerHeight*.36,280),Math.abs(delta)*1.2)){
+        event.preventDefault();
+        if(event.defaultPrevented) advance(delta);
+      }
+      schedule();
+    },{passive:false});
+    listen(window,'touchstart',event => {
+      release();touch=null;touching=event.touches.length>0;
+      if(event.touches.length!==1 || !eligible(event.target)) return;
+      const point=event.touches[0];
+      touch={x:point.clientX,y:point.clientY,lastY:point.clientY,time:now(),velocity:0,claimed:false};
+      armed=true;inputTime=now();
+    });
+    listen(window,'touchmove',event => {
+      if(!touch || event.touches.length!==1 || disabled()){touch=null;release();return;}
+      const point=event.touches[0], dx=point.clientX-touch.x, dy=point.clientY-touch.y;
+      if(!touch.claimed && Math.abs(dx)>Math.abs(dy)){touch=null;release();return;}
+      if(!touch.claimed && Math.abs(dy)<2) return;
+      if(!event.cancelable){touch=null;release();return;}
       event.preventDefault();
-      if (event.defaultPrevented) window.scrollTo({ top, behavior: 'instant' });
-    }, { passive: false });
-    listen(window, 'touchstart', event => {
-      release();touchOrigin = null;touching = event.touches.length > 0;
-      if (event.touches.length !== 1) return;
-      intent(event.target);
-      touchOrigin = { x: event.touches[0].clientX, y: event.touches[0].clientY };
-      touchY = touchOrigin.y;
+      if(!event.defaultPrevented) return;
+      const delta=touch.lastY-point.clientY, time=now(), elapsed=Math.max(8,time-touch.time);
+      const sign=Math.sign(delta);
+      if(sign && direction && sign!==direction){release();if(served && Math.abs(scrollY-served.y)>4) served=null;}
+      direction=sign || direction;inputTime=time;armed=true;
+      moved=moved || Math.abs(delta)>.5;
+      touch.claimed=true;touch.velocity=.4*touch.velocity+.6*delta/elapsed;
+      touch.lastY=point.clientY;touch.time=time;
+      advance(delta);
+    },{passive:false});
+    listen(window,'touchend',event => {
+      touching=event.touches.length>0;
+      if(touching) return;
+      const gesture=touch;touch=null;inputTime=now();
+      if(!gesture?.claimed || landing || now()<holdUntil){schedule();return;}
+      const velocity=Math.max(-5,Math.min(5,gesture.velocity));
+      if(Math.abs(velocity)<.12 || now()-gesture.time>90){schedule();return;}
+      const started=now();let previous=started;
+      const tick=time => {
+        if(disabled() || touching || pointerDown){release();return;}
+        const speed=velocity*Math.exp(-(time-started)/220), elapsed=Math.min(32,time-previous);previous=time;
+        if(Math.abs(speed)<.04 || time-started>1100){momentum=0;schedule();return;}
+        advance(speed*elapsed);
+        if(!landing) momentum=requestAnimationFrame(tick);
+      };
+      momentum=requestAnimationFrame(tick);
     });
-    listen(window, 'touchmove', event => {
-      cancel();inputTime = now();
-      if (event.touches.length !== 1 || !touchOrigin) { release();return; }
-      const touch = event.touches[0];
-      if (Math.abs(touch.clientX - touchOrigin.x) > Math.abs(touch.clientY - touchOrigin.y)) release();
-      else if (Math.abs(touch.clientY - touchY) > 1) direction = Math.sign(touchY - touch.clientY);
-      touchY = touch.clientY;
+    listen(window,'touchcancel',()=>{touching=false;touch=null;release();});
+    listen(window,'pointerdown',event=>{if(event.pointerType!=='touch'){release();pointerDown=true;}});
+    listen(window,'pointerup',()=>{pointerDown=false;});
+    listen(window,'pointercancel',()=>{pointerDown=false;});
+    listen(window,'keydown',release);
+    listen(host,'click',event=>{
+      if(event.target instanceof Element && event.target.closest('a,button,input,select,textarea,summary')) release();
+    },{capture:true});
+    listen(window,'hashchange',release);
+    listen(window,'popstate',release);
+    listen(window,'resize',()=>{invalidate();served=null;release();});
+    listen(host,'toggle',invalidate,{capture:true});
+    listen(window,'blur',()=>{touching=pointerDown=false;touch=null;release();});
+    listen(document,'visibilitychange',()=>{touching=pointerDown=false;touch=null;release();});
+    listen(motion,'change',release);
+    listen(window,'scroll',()=>{
+      const y=scrollY, delta=y-lastY;lastY=y;
+      if(served && !landing && Math.abs(y-served.y)>Math.min(innerHeight*.4,320)) served=null;
+      if(!armed || landing || frame || momentum) return;
+      moved=true;
+      if(!direction && delta) direction=Math.sign(delta);
+      scrollTime=now();
+      if(!touching && !pointerDown) schedule();
     });
-    listen(window, 'touchend', event => {
-      touching = event.touches.length > 0;inputTime = now();
-      if (armed && moved && !touching) timer = setTimeout(settle, 240);
-    });
-    listen(window, 'touchcancel', () => { touching = false;touchOrigin = null;release(); });
-    listen(window, 'pointerdown', event => { if (event.pointerType !== 'touch') { release();pointerDown = true; } });
-    listen(window, 'pointerup', () => { pointerDown = false; });
-    listen(window, 'pointercancel', () => { pointerDown = false; });
-    listen(window, 'keydown', release);
-    listen(host, 'click', event => {
-      if (event.target instanceof Element && event.target.closest('a,button,input,select,textarea,summary')) release();
-    }, { capture: true });
-    listen(window, 'hashchange', release);
-    listen(window, 'popstate', release);
-    listen(window, 'resize', () => { invalidate();release(); });
-    listen(host, 'toggle', invalidate, { capture: true });
-    listen(window, 'blur', () => { touching = pointerDown = false;release(); });
-    listen(document, 'visibilitychange', () => { touching = pointerDown = false;release(); });
-    listen(motion, 'change', release);
-    listen(window, 'scroll', () => {
-      const y = scrollY;
-      const delta = y - lastY;lastY = y;
-      if (latched && Math.abs(y - latched.y) > radius() * 1.4) latched = null;
-      if (!armed || frame) return;
-      if (!direction && delta) direction = Math.sign(delta);
-      moved = true;scrollTime = now();
-      clearTimeout(timer);
-      if (!touching && !pointerDown) timer = setTimeout(settle, 240);
-    });
-    const observer = new ResizeObserver(invalidate);
-    observer.observe(host);
-    const cleanup = () => { release();observer.disconnect();controller.abort(); };
-    signal?.addEventListener('abort', cleanup, { once: true });
-    controller.signal.addEventListener('abort', () => signal?.removeEventListener('abort', cleanup), { once: true });
+    const observer=new ResizeObserver(invalidate);observer.observe(host);
+    const cleanup=()=>{release();observer.disconnect();controller.abort();};
+    signal?.addEventListener('abort',cleanup,{once:true});
+    controller.signal.addEventListener('abort',()=>signal?.removeEventListener('abort',cleanup),{once:true});
     return cleanup;
   };
 })();

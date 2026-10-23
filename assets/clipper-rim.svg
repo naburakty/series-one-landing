@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536" fill="none">
+  <title>Series One clipper, edge light</title>
+  <defs>
+    <path id="clipper-edge" d="M363 61 L377 62 L380 91 L381 88 L385 88 L387 91 L387 62 L390 61 L393 88 L396 88 L399 98 L402 92 L403 61 L406 62 L410 98 L413 88 L417 88 L419 61 L421 61 L422 66 L423 85 L424 88 L428 88 L431 98 L433 93 L434 61 L437 62 L441 98 L443 98 L445 88 L448 88 L449 61 L452 61 L454 90 L460 88 L462 97 L464 62 L467 61 L469 88 L471 89 L473 98 L475 98 L476 90 L479 88 L480 61 L483 62 L485 95 L488 88 L492 88 L494 94 L495 62 L498 61 L500 88 L503 89 L505 98 L507 98 L510 84 L511 61 L514 62 L516 98 L519 89 L525 89 L527 61 L529 61 L530 65 L531 88 L535 89 L537 98 L540 93 L542 61 L545 62 L547 98 L550 96 L551 89 L555 88 L556 85 L557 61 L560 61 L561 88 L567 89 L569 98 L573 61 L576 62 L576 80 L579 98 L581 98 L583 89 L586 88 L588 61 L591 62 L592 92 L594 88 L598 88 L600 96 L603 62 L606 61 L607 87 L609 88 L611 98 L613 98 L615 88 L617 88 L619 61 L622 62 L623 96 L626 88 L630 88 L632 92 L634 62 L637 61 L638 88 L641 88 L643 98 L645 98 L647 91 L650 61 L653 62 L654 98 L656 97 L658 88 L663 87 L666 61 L668 61 L669 88 L673 88 L675 98 L677 97 L681 61 L684 62 L685 98 L688 96 L689 89 L693 88 L696 61 L699 62 L700 89 L705 88 L705 92 L707 92 L710 61 L723 61 L731 68 L720 263 L725 345 L724 472 L716 555 L708 600 L695 653 L688 714 L689 771 L700 862 L701 896 L698 970 L673 1321 L667 1361 L659 1395 L653 1412 L640 1434 L618 1456 L598 1468 L574 1474 L523 1475 L503 1472 L484 1466 L464 1454 L448 1437 L433 1413 L426 1394 L418 1359 L411 1309 L398 1117 L396 1117 L391 1110 L393 1092 L392 1065 L386 996 L380 971 L380 962 L383 958 L387 958 L385 866 L397 760 L397 706 L393 669 L373 578 L366 520 L364 638 L311 637 L305 633 L303 625 L292 437 L297 414 L303 402 L314 390 L321 373 L326 322 L330 317 L331 311 L334 309 L363 308 L366 261 L360 131 L358 124 L355 72 L356 66Z"/>
+    <linearGradient id="rim-falloff" x1="0" y1="61" x2="0" y2="1475" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#eeeae3" stop-opacity=".07"/>
+      <stop offset=".08" stop-color="#eeeae3" stop-opacity=".18"/>
+      <stop offset=".24" stop-color="#f5f1eb" stop-opacity=".9"/>
+      <stop offset=".43" stop-color="#eeeae3" stop-opacity=".64"/>
+      <stop offset=".69" stop-color="#e6e8eb" stop-opacity=".25"/>
+      <stop offset=".9" stop-color="#e6e8eb" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#e6e8eb" stop-opacity=".015"/>
+    </linearGradient>
+    <linearGradient id="rim-direction" x1="292" y1="0" x2="731" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity=".25"/>
+      <stop offset=".2" stop-color="white" stop-opacity=".6"/>
+      <stop offset=".46" stop-color="white" stop-opacity=".12"/>
+      <stop offset=".72" stop-color="white" stop-opacity=".55"/>
+      <stop offset="1" stop-color="white"/>
+    </linearGradient>
+    <mask id="direction" maskUnits="userSpaceOnUse" x="280" y="48" width="465" height="1440" style="mask-type:alpha">
+      <path d="M280 48H745V1488H280Z" fill="url(#rim-direction)"/>
+    </mask>
+    <filter id="soft-edge" x="-4%" y="-2%" width="108%" height="104%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="1.7"/>
+    </filter>
+  </defs>
+  <g mask="url(#direction)" stroke="url(#rim-falloff)" stroke-linecap="round" stroke-linejoin="round">
+    <use href="#clipper-edge" stroke-width="6" opacity=".35" filter="url(#soft-edge)"/>
+    <use href="#clipper-edge" stroke-width="2" opacity=".86"/>
+  </g>
+</svg>
