@@ -155,7 +155,11 @@
         }
         // Reserve the new lead-in without compressing the existing camera journey.
         const p = range(readingProgress,.20,1);
-        const x = sample(p,'x'), y = sample(p,'y'), scale = sample(p,'s'), rotation = sample(p,'r');
+        // Begin close enough to fill the canvas, then rejoin the established headline view.
+        const openingScale = Math.min(height*.88/(heroHeight*.9206),width*.76/(heroHeight*(2/3)*.4287));
+        const pullback = ease(range(scrollProgress,.205,.355));
+        const x = lerp(50,sample(p,'x'),pullback), y = lerp(48,sample(p,'y'),pullback);
+        const scale = lerp(openingScale,sample(p,'s'),pullback), rotation = lerp(0,sample(p,'r'),pullback);
         const family = ease(range(p,.62,.85)), open = range(p,0,.27);
         place(product,x,y,scale,rotation);
         product.style.opacity = '1';
@@ -208,7 +212,8 @@
         const captionOpacity = ease(range(open,.13,.28));
         show(caption,captionOpacity,true);
         progress.style.transform = `scaleX(${scrollProgress})`;
-        prompt.style.display = scrollProgress > .28 ? 'none' : '';
+        prompt.style.setProperty('--prompt-intensity',1-ease(range(scrollProgress,.205,.235)));
+        prompt.style.display = scrollProgress > .235 ? 'none' : '';
         skip.style.visibility = p > .83 || captionOpacity < .65 ? 'hidden' : 'visible';
         const scene = p < .30 ? 0 : p < .48 ? 1 : p < .67 ? 2 : 3;
         const sceneNames = ['01 / THE AWAKENING','02 / A CHANGE IN PERSPECTIVE','03 / THE BIGGER PICTURE','04 / THE COMPLETE SERIES'];
