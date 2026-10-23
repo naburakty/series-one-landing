@@ -423,12 +423,11 @@
 .series-page .ignition-logo::before{content:'';position:absolute;inset:0;background:#fff;mask:url('assets/clipper-logo-light.webp') center/100% 100% no-repeat;filter:blur(3px) drop-shadow(0 0 18px #fff) drop-shadow(0 0 55px #ffffffcc);opacity:.65}
 .series-page .ignition-logo>img{width:100%;height:100%;opacity:var(--logo-core,1);filter:drop-shadow(0 0 3px #fff)}
 .series-page .ignition-logo-sheen{position:absolute;inset:0;opacity:0;mask:url('assets/clipper-logo-light.webp') center/100% 100% no-repeat;background:linear-gradient(110deg,transparent 35%,#fff 48%,transparent 61%);background-size:250% 100%;mix-blend-mode:screen}
-.series-page .ignition-source{position:absolute;left:8%;right:8%;bottom:-4px;height:1px;opacity:0;background:linear-gradient(90deg,transparent,#f5f5f5ba,transparent);box-shadow:0 2px 30px 9px #e6e6e69c;filter:blur(.5px)}
 .series-page .ignition-light{position:absolute;inset:0;z-index:2;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden}
 .series-page .ignition-beam{position:absolute;left:var(--emission-x,50%);top:var(--emission-y,25%);width:175vw;height:120svh;transform:translateX(-50%) scale(.3,.25);transform-origin:50% 0;background:conic-gradient(from 144deg at 50% 0%,transparent 0deg,#e5e5e530 12deg,#f7f7f78c 36deg,#e5e5e530 60deg,transparent 72deg);mask-image:linear-gradient(#000,transparent 85%)}
 .series-page .ignition-wash{position:absolute;inset:-10%;mask-image:radial-gradient(ellipse closest-side,#000 30%,transparent 100%);transform-origin:var(--emission-x,50%) var(--emission-y,25%);background:radial-gradient(ellipse at var(--emission-x,50%) var(--emission-y,25%),#f4f4f485,transparent 30%),radial-gradient(ellipse at 50% 42%,#75757580,transparent 78%)}
 .series-page .led-cluster{left:52.96337%;top:78.94443%;width:.89190%;height:7.03967%}.series-page .led-cluster i{height:8.446%;opacity:0;transform:scaleX(.7);border:0;border-radius:50%;will-change:opacity,transform}
-@media(max-width:760px){.series-page .ignition-beam{width:220vw}.series-page .ignition-source{bottom:-3px}}
+@media(max-width:760px){.series-page .ignition-beam{width:220vw}}
 @media(prefers-reduced-motion:reduce){.series-page .ignition-logo,.series-page .ignition-light{display:none!important}}
 
 /* Let the dryer cord pass behind the display edge while its handle shares the baseline. */
