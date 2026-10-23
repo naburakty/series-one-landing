@@ -185,7 +185,7 @@
         show(detail,ease(range(p,.30,.36))*(1-ease(range(p,.43,.50))));
         show(system,ease(range(p,.48,.54))*(1-ease(range(p,.59,.67))));
         show(heading,ease(range(p,.70,.80)));
-        show(controls,ease(range(p,.82,.89)),true);
+        show(controls,ease(range(p,.74,.84)),true);
         show(labels,ease(range(p,.81,.88)));
         heading.style.transform = `translate3d(0,${(1-ease(range(p,.70,.80)))*16}px,0)`;
         labels.style.transform = `translate3d(0,${(1-ease(range(p,.81,.88)))*10}px,0)`;
