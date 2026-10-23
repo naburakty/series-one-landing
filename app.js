@@ -28,7 +28,6 @@
         this.timeline?.kill();
         this.timeline = null;
         this.initSequence();
-        if(!this.reducedMotion)this.startTurnPreload();
       });
       this.on(this.$('[data-back-top]'), 'click', () => {
         window.scrollTo({ top: this.getBoundingClientRect().top + scrollY, behavior: this.reducedMotion ? 'instant' : 'smooth' });
@@ -45,7 +44,6 @@
     disconnectedCallback() {
       this.controller?.abort();
       this.sequenceController?.abort();
-      this.poseTween?.kill();
       this.scrollCheckpointCleanup?.();
       this.scrollCheckpointCleanup = null;
       this.observer?.disconnect();
@@ -72,13 +70,11 @@
     }
     initSequence() {
       this.sequenceController?.abort();
-      this.poseTween?.kill();
       this.sequenceController = new AbortController();
       const listen = (target, event, callback, options = {}) => target.addEventListener(event, callback, { ...options, signal: this.sequenceController.signal });
       const intro = this.$('.intro-track'), stage = this.$('.intro-stage');
       const product = this.$('.hero-product'), render = this.$('.hero-render');
       const silhouette = this.$('.hero-silhouette');
-      const frontPose = this.$('.hero-clipper'), anglePose = this.$('.hero-angle');
       const led = this.$('.led-cluster'), header = this.$('.site-header');
       const ledBars = [...led.children].reverse();
       const ignitionLogo = this.$('.ignition-logo'), ignitionLight = this.$('.ignition-light');
@@ -106,30 +102,6 @@
         element.style.visibility = opacity > .002 ? 'visible' : 'hidden';
         if (interactive) element.inert = opacity < .65;
       };
-      const pose = { mix: 0 };
-      let poseTarget = 0;
-      const paintPose = () => {
-        if(!frontPose || !anglePose)return;
-        const mix=pose.mix,compact=this.finishMotionQuery.matches;
-        show(frontPose,1-mix);show(anglePose,mix);
-        frontPose.style.transform=compact?`scaleX(${1-.035*mix})`:`rotateY(${8*mix}deg)`;
-        anglePose.style.transform=compact?`scaleX(${1-.035*(1-mix)})`:`rotateY(${-8*(1-mix)}deg)`;
-        this.poseMix=mix;
-      };
-      const updatePose = wanted => {
-        this.turnWanted=wanted;
-        const ready=this.turnAssetUrl && this.finishImageCache?.get(this.turnAssetUrl(this.finish))?.ready;
-        const target=wanted && ready && !this.reducedMotion && window.gsap ? 1 : 0;
-        if(!ready || this.reducedMotion){
-          this.poseTween?.kill();poseTarget=pose.mix=0;paintPose();return;
-        }
-        if(target===poseTarget)return;
-        poseTarget=target;this.poseTween?.kill();
-        // A short timed blend avoids parking on two ghosted blades during a slow scroll.
-        this.poseTween=gsap.to(pose,{mix:target,duration:.28,ease:'power1.inOut',onUpdate:paintPose});
-      };
-      paintPose();
-      this.sequenceController.signal.addEventListener('abort',()=>this.poseTween?.kill(),{once:true});
       let width, height, narrow, heroHeight, toolHeights, positions, keys;
       const measure = () => {
         width = stage.clientWidth; height = stage.clientHeight; narrow = width <= 760;
@@ -185,7 +157,6 @@
         }
         // Reserve the new lead-in without compressing the existing camera journey.
         const p = range(readingProgress,.20,1);
-        updatePose(journeyProgress>=.43 && journeyProgress<.60);
         // Begin close enough to fill the canvas, then rejoin the established headline view.
         const openingScale = Math.min(height*.88/(heroHeight*.9206),width*.76/(heroHeight*(2/3)*.4287));
         const pullback = ease(range(scrollProgress,.33,.455));
@@ -336,21 +307,13 @@
       this.detailBase = this.compactFinishes
         ? this.dataset.mobileDetailBase || this.dataset.detailBase || 'assets/mobile/details/clipper-'
         : this.dataset.detailBase || 'assets/details/clipper-';
-      this.turnBase = this.compactFinishes
-        ? this.dataset.mobileTurnBase || this.dataset.turnBase || 'assets/mobile/angles/clipper-'
-        : this.dataset.turnBase || 'assets/angles/clipper-';
-      this.turnAssetUrl = finish => `${this.turnBase}${finish}.webp`;
-      this.visualAssetUrl = (visual,finish) => visual.dataset.visualKind === 'angle'
-        ? this.turnAssetUrl(finish) : visual.dataset.visualKind === 'detail'
-          ? `${this.detailBase}${finish}.webp` : this.assetUrl(visual.dataset.productVisual,finish);
+      this.visualAssetUrl = (visual,finish) => visual.dataset.visualKind === 'detail'
+        ? `${this.detailBase}${finish}.webp` : this.assetUrl(visual.dataset.productVisual,finish);
       this.finishImageCache = new Map();
       this.pendingFinish = null;
       this.finishesReady = false;
       this.$$('[data-product-visual]').forEach((visual)=>{
         if(!visual.dataset.assetBase)visual.dataset.assetBase=this.assetBase;
-        if(visual.dataset.visualKind==='angle'){
-          visual.style.setProperty('--product-mask','none');return;
-        }
         visual.style.setProperty('--product-mask',`url("${this.visualAssetUrl(visual,'black')}")`);
         visual.querySelector('.finish-front').src=this.visualAssetUrl(visual,this.finish);
         visual.querySelector('.finish-front').style.opacity='1';
@@ -360,7 +323,7 @@
       this.$$('[data-finish]').forEach(button=>{
         button.classList.toggle('selected',button.dataset.finish===this.finish);
         button.setAttribute('aria-pressed',String(button.dataset.finish===this.finish));
-        const warm=()=>{this.prepareFinish(button.dataset.finish,'high');this.prepareTurn(button.dataset.finish,'low');};
+        const warm=()=>this.prepareFinish(button.dataset.finish,'high');
         ['pointerenter','focus','pointerdown'].forEach(event=>this.on(button,event,warm));
         this.on(button,'click',()=>this.changeFinish(button.dataset.finish));
       });
@@ -430,30 +393,8 @@
         if(signal.aborted)return false;
         this.finishesReady=ready;update();
         if(showLoader)reveal();else cleanup();
-        this.startTurnPreload();
         return ready;
       });
-    }
-    prepareTurn(finish,priority='low') {
-      if(this.reducedMotion || !this.turnAssetUrl)return Promise.resolve(false);
-      const signal=this.abortSignal,url=this.turnAssetUrl(finish);
-      return this.loadFinishImage(url,priority).then(ready=>{
-        if(ready && !signal.aborted && this.finish===finish){
-          const visual=this.$('.hero-angle');
-          if(visual && !visual.classList.contains('is-changing-finish')){
-            visual.querySelector('.finish-front').src=url;
-            visual.style.setProperty('--product-mask',`url("${url}")`);
-          }
-          this.applySequence?.(this.sceneProgress??0);
-        }
-        return ready;
-      });
-    }
-    startTurnPreload() {
-      if(this.reducedMotion || !this.finishNames)return Promise.resolve(false);
-      this.turnPreload=Promise.all(Object.keys(this.finishNames).map(finish=>this.prepareTurn(finish)))
-        .then(results=>results.every(Boolean));
-      return this.turnPreload;
     }
     finishUrls(finish) {
       return [...Object.keys(this.products).map(product=>this.assetUrl(product,finish)),`${this.detailBase}${finish}.webp`];
@@ -499,7 +440,6 @@
       const ready=this.finishUrls(finish).every(url=>this.finishImageCache.get(url)?.ready);
       this.setFinishSelection(finish,!ready);
       const loaded=ready||await this.prepareFinish(finish,'high');
-      if(loaded && this.turnWanted)await this.prepareTurn(finish,'high');
       if(request!==this.finishRequest||!this.isConnected)return;
       this.pendingFinish=null;
       if(!loaded){
