@@ -243,13 +243,13 @@
 .series-page .journey-copy{position:absolute;z-index:7;top:31%;width:39%;opacity:0;visibility:hidden;pointer-events:none}
 .series-page .journey-copy-detail{left:57%}
 .series-page .journey-copy-system{left:8.3%;width:45%}
-.series-page .journey-duo-stage{position:absolute;left:58%;width:40%;top:74%;height:4%;z-index:3;display:flex;justify-content:space-around;padding-top:20px;border-top:1px solid color-mix(in srgb,var(--accent) 28%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--raised) 65%,transparent),transparent);opacity:0;visibility:hidden;pointer-events:none}
+.series-page .journey-duo-stage{position:absolute;left:13.5%;width:38%;top:74%;height:4%;z-index:3;display:flex;justify-content:space-around;padding-top:20px;border-top:1px solid color-mix(in srgb,var(--accent) 28%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--raised) 65%,transparent),transparent);opacity:0;visibility:hidden;pointer-events:none}
 .series-page .journey-duo-stage span{font-size:8px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
 .series-page .journey-copy .eyebrow{color:var(--accent);font-size:8px;letter-spacing:2px;margin-bottom:24px}
 .series-page .journey-copy h2{font-family:var(--display);font-weight:600;text-transform:uppercase;font-size:clamp(58px,7vw,106px);line-height:.95;letter-spacing:-1px}
 .series-page .journey-copy h2 em{font:inherit;color:var(--accent)}
 .series-page .journey-copy>p:last-of-type{font-size:12px;line-height:1.8;color:var(--muted);margin-top:26px}
-.series-page .journey-copy-system h2 em{font-size:.69em;white-space:nowrap}
+.series-page .journey-copy-detail h2 em,.series-page .journey-copy-system h2 em{font-size:.69em;white-space:nowrap}
 .series-page .camera-coordinate{font-size:7px;letter-spacing:2px;color:var(--quiet);display:block;margin-top:40px}
 .series-page .journey-family-heading{position:absolute;top:14.5%;left:0;right:0;text-align:center;z-index:7;opacity:0;visibility:hidden;pointer-events:none}
 .series-page .journey-family-heading .eyebrow{justify-content:center;color:var(--accent);font-size:8px;letter-spacing:2px;margin-bottom:15px}
@@ -326,15 +326,14 @@
 .series-page .intro-track{height:650svh}
 .series-page .hero-product{height:65svh}
 .series-page .journey-copy{top:auto;bottom:16%;width:85%;left:7%}
-.series-page .journey-copy-detail{left:51%;top:27%;bottom:auto;width:46%}
+.series-page .journey-copy-detail{left:7%;top:57%;bottom:auto;width:85%}
 .series-page .journey-copy-system{top:57%;bottom:auto}
 .series-page .journey-duo-stage{left:7%;width:86%;top:48%;height:3%;padding-top:13px}
 .series-page .journey-duo-stage span{font-size:6px;letter-spacing:1px}
 .series-page .journey-copy h2{font-size:clamp(48px,12vw,72px);line-height:.94}
-.series-page .journey-copy-detail h2{font-size:clamp(40px,10.8vw,64px)}
 .series-page .journey-copy .eyebrow{font-size:6px;letter-spacing:1px;line-height:1.6;margin-bottom:17px;max-width:160px}
 .series-page .journey-copy>p:last-of-type{font-size:10px;line-height:1.8;margin-top:20px}
-.series-page .journey-copy-system h2 em{font-size:.7em}
+.series-page .journey-copy-detail h2 em,.series-page .journey-copy-system h2 em{font-size:.7em}
 .series-page .camera-coordinate{font-size:5px;letter-spacing:1px;margin-top:30px}
 .series-page .journey-family-heading{top:13.5%;padding:0 7%}
 .series-page .journey-family-heading .eyebrow{font-size:6px;letter-spacing:1.5px;margin-bottom:11px}

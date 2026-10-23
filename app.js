@@ -103,7 +103,7 @@
         element.style.visibility = opacity > .002 ? 'visible' : 'hidden';
         if (interactive) element.inert = opacity < .65;
       };
-      let width, height, narrow, heroHeight, toolHeights, positions, keys, featureHeights, featurePositions, pairTrimmerHeight, pairTrimmerPosition, clipperScale;
+      let width, height, narrow, heroHeight, toolHeights, positions, keys, featureHeights, featurePositions, clipperScale;
       const measure = () => {
         width = stage.clientWidth; height = stage.clientHeight; narrow = width <= 760;
         heroHeight = product.offsetHeight;
@@ -116,14 +116,13 @@
         const bottoms = [.96028646, .96028646, .96028646, .755];
         positions = heights.map((h, i) => ({ x: columns[i], y: baselines[i] - (bottoms[i] - .5) * h / height * 100 }));
         featureHeights = narrow
-          ? [Math.min(height*.66,width*1.35),Math.min(height*.28,width*.55),Math.min(height*.40,width*.80)]
-          : [Math.min(height*.74,width*.54),Math.min(height*.43,width*.30),Math.min(height*.50,width*.35)];
+          ? [Math.min(height*.38,width*.74),Math.min(height*.28,width*.55),Math.min(height*.52,width*1.08)]
+          : [Math.min(height*.57,width*.40),Math.min(height*.43,width*.30),Math.min(height*.76,width*.54)];
         const duoBaseline = narrow ? 48 : 74;
-        pairTrimmerHeight = narrow ? Math.min(height*.38,width*.74) : Math.min(height*.57,width*.40);
-        pairTrimmerPosition = {x:narrow?28:68.5,y:duoBaseline-(bottoms[1]-.5)*pairTrimmerHeight/height*100};
         featurePositions = [
-          {x:narrow?26:31,y:narrow?42:51},
-          {x:narrow?72:88,y:duoBaseline-(bottoms[2]-.5)*featureHeights[1]/height*100}
+          {x:narrow?28:23,y:duoBaseline-(bottoms[1]-.5)*featureHeights[0]/height*100},
+          {x:narrow?72:42,y:duoBaseline-(bottoms[2]-.5)*featureHeights[1]/height*100},
+          {x:narrow?52:76,y:(narrow?48:74)-(bottoms[3]-.5)*featureHeights[2]/height*100}
         ];
         // The clipper keeps one continuous route into its final column while handing focus onward.
         keys = narrow ? [
@@ -214,8 +213,8 @@
         render.style.maskImage = illumination < .999 ? `linear-gradient(112deg,#000 16%,rgba(0,0,0,${illumination}) 40%,rgba(0,0,0,${illumination}) 64%,#000 88%)` : 'none';
         show(header,ease(range(open,.22,.38)),true);
         show(copy,ease(range(open,.43,.68))*(1-ease(range(p,.235,.275))),true);
-        show(detail,ease(range(p,.30,.36))*(1-ease(range(p,.405,.45))));
-        show(system,ease(range(p,.48,.54))*(1-ease(range(p,.59,.67))));
+        show(detail,ease(range(p,.30,.36))*(1-ease(range(p,.39,.415))));
+        show(system,ease(range(p,.52,.56))*(1-ease(range(p,.59,.67))));
         show(heading,ease(range(p,.70,.80)));
         show(controls,ease(range(p,.74,.84)),true);
         show(labels,ease(range(p,.81,.88)));
@@ -233,37 +232,38 @@
         prompt.style.display = scrollProgress > .235 ? 'none' : '';
         skip.style.visibility = p > .83 || captionOpacity < .65 ? 'hidden' : 'visible';
         const scene = p < .30 ? 0 : p < .48 ? 1 : p < .67 ? 2 : 3;
-        const sceneNames = ['01 / THE AWAKENING','02 / DEFINE THE DETAILS','03 / DEFINE. THEN REFINE.','04 / THE COMPLETE SERIES'];
+        const sceneNames = ['01 / THE AWAKENING','02 / DEFINE. THEN REFINE.','03 / SHAPE THE FINISH','04 / THE COMPLETE SERIES'];
         if (captionText.textContent !== sceneNames[scene]) captionText.textContent = sceneNames[scene];
-        // The trimmer gets a clear solo frame; the clipper detail remains in the design section below.
+        // Each tool hands focus onward before the complete collection assembles.
         show(macro,0);
         macro.style.transform = `scale(${1.1+range(p,.30,.49)*.15}) translate3d(${-range(p,.30,.49)*3}%,0,0)`;
         show(portal,0);
         show(floor,0);
-        const trimmerIn = ease(range(p,.245,.35));
-        const duoIn = ease(range(p,.43,.54));
-        show(duoStage,duoIn*(1-ease(range(p,.65,.75))));
+        const pairIn = ease(range(p,.245,.35));
+        const pairMove = ease(range(p,.43,.56));
+        const pairOut = ease(range(p,.405,.48));
+        const dryerIn = ease(range(p,.43,.54));
+        const dryerPower = ease(range(p,.395,.47));
+        show(duoStage,pairIn*(1-ease(range(p,.395,.425))));
         siblings.forEach((sibling,i) => {
           const destination = positions[i+1];
+          const feature = featurePositions[i], featureScale = featureHeights[i]/toolHeights[i];
           if(i===2){
-            // The dryer joins only as the complete collection assembles, close to its own column.
-            const dryerIn = ease(range(p,.67,.81));
-            show(sibling,dryerIn);
-            place(sibling,lerp(destination.x+5,destination.x,dryerIn),lerp(destination.y+12,destination.y,dryerIn),lerp(.88,1,dryerIn),lerp(5,0,dryerIn));
+            // The dryer rises while the pair recedes, then keeps travelling into its final column.
+            const soloX = lerp(feature.x+7,feature.x,dryerIn);
+            const soloY = lerp(feature.y+(narrow?35:13),feature.y,dryerIn);
+            const soloScale = lerp(featureScale*.88,featureScale,dryerIn);
+            show(sibling,dryerPower);
+            place(sibling,lerp(soloX,destination.x,assemble),lerp(soloY,destination.y,assemble),lerp(soloScale,1,assemble),lerp(lerp(6,0,dryerIn),0,assemble));
             return;
           }
-          const feature = featurePositions[i], featureScale = featureHeights[i]/toolHeights[i];
-          const enter = i===0 ? trimmerIn : duoIn;
-          const soloX = lerp(i===0?40:feature.x+8,feature.x,enter);
-          const soloY = lerp(feature.y+(i===0?35:14),feature.y,enter);
-          const soloScale = lerp(featureScale*.65,featureScale,enter);
-          // Keep the trimmer present as it shrinks and glides into the paired composition.
-          const stageX = i===0 ? lerp(soloX,pairTrimmerPosition.x,duoIn) : soloX;
-          const stageY = i===0 ? lerp(soloY,pairTrimmerPosition.y,duoIn) : soloY;
-          const stageScale = i===0 ? lerp(soloScale,pairTrimmerHeight/toolHeights[0],duoIn) : soloScale;
-          const stageRotation = i===0 ? lerp(lerp(-12,-3,enter),0,duoIn) : lerp(5,0,enter);
-          show(sibling,enter);
-          place(sibling,lerp(stageX,destination.x,assemble),lerp(stageY,destination.y,assemble),lerp(stageScale,1,assemble),lerp(stageRotation,0,assemble));
+          const pairX = lerp(feature.x+(i===0?8:10),feature.x,pairIn);
+          const pairY = lerp(feature.y+(i===0?18:14),feature.y,pairIn);
+          const pairScale = lerp(featureScale*.88,featureScale,pairIn);
+          const pairRotation = lerp(i===0?-7:6,0,pairIn);
+          // Park the pair at its final positions while hidden, ready to rejoin the dryer.
+          show(sibling,Math.max(pairIn*(1-pairOut),assemble));
+          place(sibling,lerp(pairX,destination.x,pairMove),lerp(pairY,destination.y,pairMove),lerp(pairScale,1,pairMove),lerp(pairRotation,0,pairMove));
         });
         shadows.forEach((shadow,i) => {
           shadow.style.left = `${positions[i].x}%`;
