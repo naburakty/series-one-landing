@@ -87,6 +87,7 @@
       const detail = this.$('.journey-copy-detail'), system = this.$('.journey-copy-system');
       const heading = this.$('.journey-family-heading'), controls = this.$('.journey-controls');
       const labels = this.$('.journey-labels'), display = this.$('.journey-display');
+      const duoStage = this.$('.journey-duo-stage');
       const macro = this.$('.journey-macro'), portal = this.$('.journey-portal');
       const floor = this.$('.journey-floor'), sideNote = this.$('.hero-side-note');
       const progress = this.$('.intro-progress span'), skip = this.$('.skip-intro');
@@ -102,17 +103,27 @@
         element.style.visibility = opacity > .002 ? 'visible' : 'hidden';
         if (interactive) element.inert = opacity < .65;
       };
-      let width, height, narrow, heroHeight, toolHeights, positions, keys;
+      let width, height, narrow, heroHeight, toolHeights, positions, keys, featureHeights, featurePositions, clipperScale;
       const measure = () => {
         width = stage.clientWidth; height = stage.clientHeight; narrow = width <= 760;
         heroHeight = product.offsetHeight;
         toolHeights = siblings.map(element => element.offsetHeight);
         const clipperHeight = narrow ? Math.min(height * .22, width * .55) : Math.min(height * .43, 430, width * .28);
+        clipperScale = clipperHeight/heroHeight;
         const heights = [clipperHeight, ...toolHeights];
         const columns = narrow ? [28, 72, 28, 72] : [18.5, 39.5, 60.5, 81.5];
         const baselines = narrow ? [46, 46, 71, 71] : [70, 70, 70, 70];
         const bottoms = [.96028646, .96028646, .96028646, .755];
         positions = heights.map((h, i) => ({ x: columns[i], y: baselines[i] - (bottoms[i] - .5) * h / height * 100 }));
+        featureHeights = narrow
+          ? [Math.min(height*.66,width*1.35),Math.min(height*.28,width*.55),Math.min(height*.40,width*.80)]
+          : [Math.min(height*.74,width*.54),Math.min(height*.43,width*.30),Math.min(height*.50,width*.35)];
+        const duoBaseline = narrow ? 48 : 74;
+        featurePositions = [
+          {x:narrow?26:31,y:narrow?42:51},
+          {x:narrow?26:68.5,y:duoBaseline-(bottoms[2]-.5)*featureHeights[1]/height*100},
+          {x:narrow?72:88,y:duoBaseline-(bottoms[3]-.5)*featureHeights[2]/height*100}
+        ];
         // Cubic tangents carry momentum through each composition; only the final display settles.
         keys = narrow ? [
           {p:0,x:50,y:38,s:.75,r:0},
@@ -164,8 +175,11 @@
         const y = lerp(48,sample(p,'y'),pullback)+(narrow?2*Math.sin(Math.PI*pullback):0);
         const scale = lerp(openingScale,sample(p,'s'),pullback), rotation = lerp(0,sample(p,'r'),pullback);
         const family = ease(range(p,.62,.85)), open = range(p,0,.27);
-        place(product,x,y,scale,rotation);
-        product.style.opacity = '1';
+        const assemble = ease(range(p,.66,.84));
+        const clipperExit = ease(range(p,.27,.35));
+        if(p<.52)place(product,x,y,scale*(1-.22*clipperExit),rotation+8*clipperExit);
+        else place(product,lerp(positions[0].x-12,positions[0].x,assemble),lerp(positions[0].y+12,positions[0].y,assemble),lerp(.8,1,assemble)*clipperScale,lerp(-7,0,assemble));
+        show(product,Math.max(1-clipperExit,assemble));
         const lightHandoff = 1-ease(range(journeyProgress,.265,.305));
         show(led,lightHandoff);
         ledBars.forEach((bar,i) => {
@@ -222,17 +236,29 @@
         prompt.style.display = scrollProgress > .235 ? 'none' : '';
         skip.style.visibility = p > .83 || captionOpacity < .65 ? 'hidden' : 'visible';
         const scene = p < .30 ? 0 : p < .48 ? 1 : p < .67 ? 2 : 3;
-        const sceneNames = ['01 / THE AWAKENING','02 / A CHANGE IN PERSPECTIVE','03 / THE BIGGER PICTURE','04 / THE COMPLETE SERIES'];
+        const sceneNames = ['01 / THE AWAKENING','02 / DEFINE THE DETAILS','03 / FINISH. THEN SHAPE.','04 / THE COMPLETE SERIES'];
         if (captionText.textContent !== sceneNames[scene]) captionText.textContent = sceneNames[scene];
-        show(macro,.36*ease(range(p,.30,.38))*(1-ease(range(p,.44,.51))));
+        // The trimmer gets a clear solo frame; the clipper detail remains in the design section below.
+        show(macro,0);
         macro.style.transform = `scale(${1.1+range(p,.30,.49)*.15}) translate3d(${-range(p,.30,.49)*3}%,0,0)`;
-        show(portal,.35*ease(range(p,.47,.56))*(1-ease(range(p,.65,.81))));
-        show(floor,.25*ease(range(p,.49,.58))*(1-family));
+        show(portal,0);
+        show(floor,0);
+        const trimmerIn = ease(range(p,.27,.35)), trimmerOut = ease(range(p,.45,.53));
+        const duoIn = ease(range(p,.45,.53));
+        show(duoStage,duoIn*(1-ease(range(p,.65,.75))));
         siblings.forEach((sibling,i) => {
-          const f = ease(range(p,.62+i*.025,.80+i*.02));
+          const feature = featurePositions[i], featureScale = featureHeights[i]/toolHeights[i];
           const destination = positions[i+1];
-          show(sibling,f);
-          place(sibling,lerp(58,destination.x,f),lerp(50,destination.y,f),lerp(.66,1,f),lerp([-7,5,10][i],0,f));
+          const enter = i===0 ? trimmerIn : duoIn;
+          const featureOpacity = i===0 ? trimmerIn*(1-trimmerOut) : duoIn;
+          const featureX = i===0 ? feature.x-9*trimmerOut : feature.x;
+          const featureY = i===0 ? feature.y-25*trimmerOut : feature.y;
+          const featureSize = featureScale*(i===0 ? 1-.58*trimmerOut : 1);
+          const approachX = lerp(i===0?40:feature.x+8,featureX,enter);
+          const approachY = lerp(feature.y+35,featureY,enter);
+          const approachScale = lerp(featureScale*.65,featureSize,enter);
+          show(sibling,lerp(featureOpacity,1,assemble));
+          place(sibling,lerp(approachX,destination.x,assemble),lerp(approachY,destination.y,assemble),lerp(approachScale,1,assemble),lerp(i===0?lerp(-12,-3,enter):0,0,assemble));
         });
         shadows.forEach((shadow,i) => {
           shadow.style.left = `${positions[i].x}%`;
