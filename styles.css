@@ -467,6 +467,14 @@ html:has(.series-page.is-preparing){overflow:hidden;scrollbar-gutter:stable}
 @media(prefers-reduced-motion:reduce){.series-page .series-loader,.series-page .series-loader-track>span{transition:none}}
 
 .series-page .product-visual.is-changing-finish .finish-back{will-change:opacity}
+.series-page .power-section{min-height:calc(100svh - 92px);display:grid;align-content:center}
+.series-page .faq-section{min-height:calc(100svh - 92px);align-content:center}
+@media(max-width:760px){
+  .series-page .power-section,.series-page .faq-section{min-height:calc(100svh - 74px)}
+  .series-page .shop-visual{height:clamp(220px,calc(100svh - 388px),456px)}
+  .series-page .blade-section{height:clamp(480px,calc(100svh - 74px),700px)}
+  .series-page .collection-card-visual{height:clamp(110px,calc(100svh - 502px),205px)}
+}
 @media(max-width:760px),(pointer:coarse){
   .series-page .product-visual{perspective:none;transform-style:flat;will-change:auto}
   .series-page .finish-image,.series-page .kit-sculpture .finish-image{filter:none}
