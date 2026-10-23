@@ -228,7 +228,8 @@
         show(logoSource,ease(range(scrollProgress,.178,.22)));
         show(silhouette,.46*(1-illumination));
         show(render,.10+.90*illumination);
-        render.style.maskImage = illumination < .999 ? `radial-gradient(circle at 52.9315% 19.73895%,#000 ${illumination*120}%,transparent ${illumination*150+8}%),linear-gradient(112deg,#000 16%,transparent 40%,transparent 64%,#000 88%)` : 'none';
+        // Reveal the surface evenly between the rim lights, without a circular spot on the housing.
+        render.style.maskImage = illumination < .999 ? `linear-gradient(112deg,#000 16%,rgba(0,0,0,${illumination}) 40%,rgba(0,0,0,${illumination}) 64%,#000 88%)` : 'none';
         show(header,ease(range(open,.22,.38)),true);
         show(copy,ease(range(open,.43,.68))*(1-ease(range(p,.26,.33))),true);
         show(detail,ease(range(p,.30,.36))*(1-ease(range(p,.43,.50))));
