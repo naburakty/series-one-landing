@@ -74,6 +74,7 @@
       const listen = (target, event, callback, options = {}) => target.addEventListener(event, callback, { ...options, signal: this.sequenceController.signal });
       const intro = this.$('.intro-track'), stage = this.$('.intro-stage');
       const product = this.$('.hero-product'), render = this.$('.hero-render');
+      const silhouette = this.$('.hero-silhouette');
       const led = this.$('.led-cluster'), header = this.$('.site-header');
       const ledBars = [...led.children].reverse();
       const ignitionLogo = this.$('.ignition-logo'), ignitionLight = this.$('.ignition-light');
@@ -143,8 +144,17 @@
         element.style.transform = `translate3d(${(x-50)*width/100}px,${(y-50)*height/100}px,0) translate(-50%,-50%) rotate(${rotation}deg) scale(${scale})`;
       };
       const apply = (scrollProgress) => {
+        // Slow the visual journey around complete headlines while the page keeps scrolling.
+        let readingProgress = scrollProgress;
+        for (const center of [.368,.512,.648]) {
+          const t = (scrollProgress-center)/.06;
+          if (Math.abs(t)<1) {
+            readingProgress = center+.06*(t-.65*t*(1-t*t)**2);
+            break;
+          }
+        }
         // Reserve the new lead-in without compressing the existing camera journey.
-        const p = range(scrollProgress,.20,1);
+        const p = range(readingProgress,.20,1);
         const x = sample(p,'x'), y = sample(p,'y'), scale = sample(p,'s'), rotation = sample(p,'r');
         const family = ease(range(p,.62,.85)), open = range(p,0,.27);
         place(product,x,y,scale,rotation);
@@ -178,6 +188,7 @@
         show(ignitionWave,1-ease(range(scrollProgress,.245,.30)));
         show(logoSource,ease(range(scrollProgress,.178,.22)));
         const illumination = ease(range(scrollProgress,.19,.285));
+        show(silhouette,.58*(1-illumination));
         show(render,illumination);
         render.style.maskImage = illumination < .999 ? `radial-gradient(circle at 52.9315% 19.73895%,#000 ${illumination*120}%,transparent ${illumination*150+8}%)` : 'none';
         show(header,ease(range(open,.22,.38)),true);
@@ -227,7 +238,7 @@
         gsap.registerPlugin(ScrollTrigger);
         const state = {progress:0};
         this.timeline = gsap.to(state,{progress:1,duration:1,ease:'none',onUpdate:()=>apply(state.progress),paused:true});
-        this.sequence = ScrollTrigger.create({trigger:intro,start:'top top',end:'bottom bottom',animation:this.timeline,scrub:1.05,invalidateOnRefresh:true});
+        this.sequence = ScrollTrigger.create({trigger:intro,start:'top top',end:'bottom bottom',animation:this.timeline,scrub:matchMedia('(max-width:760px), (pointer:coarse)').matches?.45:1.05,invalidateOnRefresh:true});
         apply(this.sequence.progress);
       } else {
         let target = 0, current = 0, previous = 0;
@@ -236,7 +247,7 @@
           if (this.reducedMotion || !this.isConnected) return;
           const elapsed = previous ? Math.min(time-previous,64) : 16;
           previous = time;
-          current += (target-current)*(1-Math.exp(-elapsed/130));
+          current += (target-current)*(1-Math.exp(-elapsed/(narrow?85:130)));
           if (Math.abs(target-current)<.00005) current=target;
           apply(current);
           if (current!==target) this.frame=requestAnimationFrame(tick);

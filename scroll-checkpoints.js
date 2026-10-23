@@ -12,6 +12,7 @@
       || document.hidden || motion.matches || host.reducedMotion || reducedMotion
       || window.Shopify?.designMode || host.querySelector('dialog[open]');
     const radius = () => Math.min(innerHeight * .22, 180);
+    const phone = () => matchMedia('(max-width:760px), (pointer:coarse)').matches;
     let timer = 0, frame = 0, armed = false, moved = false, touching = false, pointerDown = false;
     let inputTime = 0, scrollTime = 0, latched = null, touchOrigin = null, touchY = 0, direction = 0;
     let cachedPoints = null, measuredAt = 0, lastY = scrollY;
@@ -60,7 +61,7 @@
         // Frame the headline and product together, excluding the section's outside padding.
         const top = align === 'top' ? header + 24
           : box.height <= available ? header + (available - box.height) / 2 : header + 16;
-        points.push({ key, y: clamp(box.top - top) });
+        points.push({ key, y: clamp(box.top - top), reading: key === 'blade' || key === 'story' || key.startsWith('story-') });
       };
       const intro = host.querySelector('.intro-track');
       if (intro && intro.offsetHeight > innerHeight * 1.5) {
@@ -68,6 +69,7 @@
         // Finished lighting, hero, macro, system, and the complete four-tool arrangement.
         [.20, .368, .512, .648, .94].forEach(progress => points.push({
           key: `intro-${progress}`, y: clamp(top + travel * progress),
+          reading: [.368,.512,.648].includes(progress),
           ...(progress === .94 ? { completeFrom: clamp(top + travel * .80) } : {})
         }));
       }
@@ -101,7 +103,8 @@
       timer = 0;
       if (!armed || !moved || touching || pointerDown || disabled()) return;
       const idle = now() - Math.max(inputTime, scrollTime);
-      if (idle < 240) { timer = setTimeout(settle, 240 - idle);return; }
+      const quiet = phone() ? 300 : 240;
+      if (idle < quiet) { timer = setTimeout(settle, quiet - idle);return; }
       const y = scrollY;
       const points = checkpoints();
       // Finish forward after 80% of a transition; never pull against the last gesture.
@@ -113,7 +116,8 @@
           : y >= start + (next.y - start) * .80
       );
       const nearby = points.filter(point => point.key !== latched?.key
-        && (point.y - y) * direction >= -2 && Math.abs(point.y - y) <= radius());
+        && (point.y - y) * direction >= -2 && Math.abs(point.y - y) <= (point.reading
+          ? Math.min(innerHeight * .30,240) : phone() ? Math.min(innerHeight * .14,110) : radius()));
       nearby.sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y));
       const target = complete ? next : nearby[0];
       armed = false;
@@ -121,7 +125,8 @@
       latched = target;
       if (Math.abs(target.y - y) < 2) return;
       const started = now();
-      const duration = Math.min(1000, Math.max(260, Math.abs(target.y - y) * 1.1));
+      const duration = phone() ? Math.min(520,Math.max(220,Math.abs(target.y-y)*.75))
+        : Math.min(1000, Math.max(260, Math.abs(target.y - y) * 1.1));
       const tick = time => {
         if (disabled() || touching || pointerDown) { release();return; }
         const progress = Math.min(1, (time - started) / duration);
@@ -145,13 +150,14 @@
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1);
       direction = Math.sign(delta);
       if (!event.cancelable || event.defaultPrevented) return;
-      const y = scrollY, zone = Math.min(innerHeight * .38, 320);
-      // A shallow resistance curve, never a destination cap. Large flicks pass freely.
-      const strength = Math.max(0, ...checkpoints().map(point => {
+      const y = scrollY;
+      // Reading views get firmer resistance; every event still advances and flicks pass.
+      const reduction = Math.max(0, ...checkpoints().map(point => {
+        const zone = Math.min(innerHeight * (point.reading ? .46 : .38),point.reading ? 380 : 320);
         const distance = Math.abs(point.y - y);
-        return distance < zone ? (1 - (distance / zone) ** 2) ** 2 : 0;
+        const strength = distance < zone ? (1 - (distance / zone) ** 2) ** 2 : 0;
+        return Math.min(Math.abs(delta)*(point.reading ? .60 : .38)*strength,point.reading ? 72 : 44);
       }));
-      const reduction = Math.min(Math.abs(delta) * .38 * strength, 44);
       if (reduction < .25) return;
       const top = Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight,
         y + delta - direction * reduction));

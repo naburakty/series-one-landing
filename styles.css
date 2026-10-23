@@ -226,6 +226,7 @@
 .series-page .intro-stage{perspective:1400px}
 .series-page .intro-stage .hero-product{left:50%;top:50%;z-index:6;transform-origin:center;pointer-events:none}
 .series-page .hero-render{height:100%;width:100%;opacity:0}
+.series-page .hero-silhouette{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.58;pointer-events:none}
 .series-page .product-visual{position:relative;width:100%;height:100%;perspective:900px;transform-style:preserve-3d;will-change:transform;isolation:isolate}
 .series-page .hero-clipper{opacity:1;will-change:auto}
 .series-page .finish-image{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;filter:drop-shadow(10px 18px 16px #0005)}
@@ -317,7 +318,7 @@
 .series-page .bag-quantity{min-width:16px;text-align:center}
 @media(max-width:1100px){.series-page .color-option{font-size:8px;padding:9px 10px}.series-page .collection-finish{min-width:340px}.series-page .collection-grid{gap:12px}.series-page .collection-card{padding:16px 13px 0}.series-page .collection-card-visual{height:235px}.series-page .collection-card-copy h3{font-size:14px}.series-page .collection-card-copy p{font-size:8px}.series-page .collection-card-bottom>span:last-child{display:none}.series-page .journey-controls{min-width:370px}.series-page .shop-picker{flex-wrap:wrap;justify-content:start}.series-page .shop-picker .color-option{font-size:9px}.series-page .shop-product-tabs{gap:13px}.series-page .shop-product-tabs button{font-size:9px}}
 @media(max-width:760px){
-.series-page .intro-track{height:850svh}
+.series-page .intro-track{height:650svh}
 .series-page .hero-product{height:65svh}
 .series-page .journey-copy{top:auto;bottom:16%;width:85%;left:7%}
 .series-page .journey-copy-detail{left:51%;top:27%;bottom:auto;width:46%}
