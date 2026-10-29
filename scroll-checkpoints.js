@@ -236,7 +236,8 @@
       cancelAnimationFrame(momentum);momentum=0;clearTimeout(timer);
       touch=null;touching=event.touches.length>0;
       if(event.touches.length!==1 || !eligible(event.target)){release();return;}
-      const pending=landing;
+      // The next swipe leaves a reached checkpoint, including during camera catch-up.
+      const pending=landing && Math.abs(landing.y-scrollY)>2 ? landing : null;
       if(pending) release();
       else if(stopped()) resume();
       const point=event.touches[0];
