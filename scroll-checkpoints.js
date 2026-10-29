@@ -14,6 +14,7 @@
     const phone = () => matchMedia('(max-width:760px), (pointer:coarse)').matches;
     let timer = 0, frame = 0, momentum = 0, holdTimer = 0, armed = false, moved = false, touching = false, pointerDown = false;
     let inputTime = 0, scrollTime = 0, direction = 0, lastY = scrollY;
+    let wheelTime = 0, wheelMagnitude = 0, arrivalTime = 0, arrivalSource = null;
     let served = null, landing = null, holding = null, holdUntil = 0, touch = null, savedScrub = null;
     let cachedPoints = null, measuredAt = 0;
     const invalidate = () => { cachedPoints = null; };
@@ -36,8 +37,15 @@
     const release = () => {
       const interrupted = landing || holding;
       cancel();landing = holding = served = null;holdUntil = 0;armed = moved = false;direction = 0;
+      arrivalSource=null;
       restoreScrub();
       emit('released',interrupted);
+    };
+    const resume = () => {
+      const target=landing || holding, travelDirection=direction;
+      release();
+      // Honor renewed input without immediately pulling it back to the same view.
+      if(target) served={...target,direction:travelDirection};
     };
     const stopped = () => landing || now()<holdUntil;
     const eligible = target => {
@@ -131,9 +139,10 @@
       const points = checkpoints().filter(point => point.key !== served?.key && (point.y-scrollY)*Math.sign(delta)>2);
       return delta>0 ? points[0] : points[points.length-1];
     };
-    const land = target => {
+    const land = (target, source = 'input') => {
       cancel();armed = moved = false;landing = target;
       const from = scrollY, started = now(), sequence = host.sequence;
+      arrivalTime=started;arrivalSource=source;
       if(sequence?.scrubDuration && typeof sequence.vars.scrub==='number'){
         if(!savedScrub) savedScrub={sequence,duration:sequence.vars.scrub};
         sequence.scrubDuration(.12);
@@ -157,7 +166,7 @@
             holdUntil=now()+pause;
             emit('stopped',target);
             holdTimer=setTimeout(()=>{
-              holdTimer=0;holdUntil=0;holding=null;restoreScrub();emit('released',target);
+              holdTimer=0;holdUntil=0;holding=null;arrivalSource=null;restoreScrub();emit('released',target);
             },pause);
           },savedScrub?140:0);
         }
@@ -185,7 +194,7 @@
       const index=points.indexOf(target), previous=points[index-1];
       const from=previous?.y ?? 0;
       const complete=direction>0 && scrollY>=(target.completeFrom ?? from+(target.y-from)*.8);
-      if(complete || Math.abs(target.y-scrollY)<=Math.min(innerHeight*.30,240)) land(target);
+      if(complete || Math.abs(target.y-scrollY)<=Math.min(innerHeight*.30,240)) land(target,'idle');
       else armed=false;
     };
     const schedule = () => {clearTimeout(timer);timer=setTimeout(settle,180);};
@@ -193,15 +202,20 @@
       if(disabled() || event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX)>Math.abs(event.deltaY)
         || pointerDown || touching || !eligible(event.target) || event.defaultPrevented){release();return;}
       const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?innerHeight:1), sign=Math.sign(delta);
+      const time=now(), magnitude=Math.abs(delta);
+      const renewed=time-wheelTime>=140
+        || (time-arrivalTime>=80 && magnitude>=18 && magnitude>wheelMagnitude*1.7);
       if(direction && sign!==direction){
         release();
       }
       if(!event.cancelable){release();return;}
       event.preventDefault();
       if(!event.defaultPrevented){release();return;}
+      // An idle snap yields on its first input; an ongoing gesture keeps its natural stop.
+      if(stopped() && (arrivalSource==='idle' || renewed)) resume();
+      wheelTime=time;wheelMagnitude=magnitude;
       cancelAnimationFrame(momentum);momentum=0;
-      direction=sign;inputTime=now();clearTimeout(timer);
-      // Same-direction input cannot cancel an arrival or its bounded still frame.
+      direction=sign;inputTime=time;clearTimeout(timer);
       if(stopped()) return;
       armed=true;
       if(advance(delta)) schedule();
@@ -210,6 +224,7 @@
       cancelAnimationFrame(momentum);momentum=0;clearTimeout(timer);
       touch=null;touching=event.touches.length>0;
       if(event.touches.length!==1 || !eligible(event.target)){release();return;}
+      if(stopped()) resume();
       const point=event.touches[0];
       touch={x:point.clientX,y:point.clientY,lastY:point.clientY,time:now(),velocity:0,claimed:false};
       inputTime=now();
@@ -268,7 +283,7 @@
     listen(motion,'change',release);
     listen(window,'scroll',()=>{
       const y=scrollY, delta=y-lastY;lastY=y;
-      if(served && !landing && Math.abs(y-served.y)>Math.min(innerHeight*.4,320)) served=null;
+      if(served && !landing && (y-served.y)*served.direction>Math.min(innerHeight*.4,320)) served=null;
       if(!armed || landing || frame || momentum) return;
       moved=true;
       if(!direction && delta) direction=Math.sign(delta);
