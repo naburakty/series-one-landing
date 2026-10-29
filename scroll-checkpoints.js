@@ -15,6 +15,8 @@
     let timer = 0, frame = 0, momentum = 0, holdTimer = 0, armed = false, moved = false, touching = false, pointerDown = false;
     let inputTime = 0, scrollTime = 0, direction = 0, lastY = scrollY;
     let wheelTime = 0, wheelMagnitude = 0, arrivalTime = 0, arrivalSource = null;
+    let viewportWidth=innerWidth, viewportHeight=innerHeight;
+    let viewportDirty=false;
     let served = null, landing = null, holding = null, holdUntil = 0, touch = null, savedScrub = null;
     let cachedPoints = null, measuredAt = 0;
     const invalidate = () => { cachedPoints = null; };
@@ -139,7 +141,15 @@
       const points = checkpoints().filter(point => point.key !== served?.key && (point.y-scrollY)*Math.sign(delta)>2);
       return delta>0 ? points[0] : points[points.length-1];
     };
-    const land = (target, source = 'input') => {
+    const refreshViewport = sequence => {
+      const intro=host.querySelector('.intro-track');
+      if(sequence?.setPositions && intro){
+        const top=intro.getBoundingClientRect().top+scrollY;
+        sequence.setPositions(top,top+Math.max(1,intro.offsetHeight-innerHeight));
+      } else sequence?.refresh?.();
+      sequence?.update?.();viewportDirty=false;
+    };
+    const land = (target, source = 'input', direct = false) => {
       cancel();armed = moved = false;landing = target;
       const from = scrollY, started = now(), sequence = host.sequence;
       arrivalTime=started;arrivalSource=source;
@@ -147,11 +157,11 @@
         if(!savedScrub) savedScrub={sequence,duration:sequence.vars.scrub};
         sequence.scrubDuration(.12);
       }
-      const duration = Math.min(phone()?560:680,Math.max(300,Math.abs(target.y-from)*.9));
+      const duration = direct ? 0 : Math.min(phone()?560:680,Math.max(300,Math.abs(target.y-from)*.9));
       emit('approach',target);
       const tick = time => {
         if(disabled() || pointerDown){release();return;}
-        const t = Math.max(0,Math.min(1,(time-started)/duration)), eased = 1-(1-t)**3;
+        const t = duration ? Math.max(0,Math.min(1,(time-started)/duration)) : 1, eased = 1-(1-t)**3;
         write(from+(target.y-from)*eased);
         if(t<1) frame=requestAnimationFrame(tick);
         else {
@@ -160,6 +170,8 @@
           holdTimer=setTimeout(()=>{
             holdTimer=0;
             if(disabled() || pointerDown){release();return;}
+            if(viewportDirty) refreshViewport(sequence);
+            if(direct) sequence?.update?.();
             sequence?.getTween?.()?.progress(1);
             served={...target,direction};landing=null;holding=target;
             const pause = target.reading ? (phone()?480:560) : (phone()?380:440);
@@ -168,7 +180,7 @@
             holdTimer=setTimeout(()=>{
               holdTimer=0;holdUntil=0;holding=null;arrivalSource=null;restoreScrub();emit('released',target);
             },pause);
-          },savedScrub?140:0);
+          },savedScrub && !direct?140:0);
         }
       };
       frame=requestAnimationFrame(tick);
@@ -220,39 +232,58 @@
       armed=true;
       if(advance(delta)) schedule();
     },{passive:false});
-    listen(window,'touchstart',event => {
+    listen(host,'touchstart',event => {
       cancelAnimationFrame(momentum);momentum=0;clearTimeout(timer);
       touch=null;touching=event.touches.length>0;
       if(event.touches.length!==1 || !eligible(event.target)){release();return;}
-      if(stopped()) resume();
+      const pending=landing;
+      if(pending) release();
+      else if(stopped()) resume();
       const point=event.touches[0];
-      touch={x:point.clientX,y:point.clientY,lastY:point.clientY,time:now(),velocity:0,claimed:false};
+      touch={x:point.clientX,y:point.clientY,lastY:point.clientY,time:now(),velocity:0,claimed:false,pending};
       inputTime=now();
     });
-    listen(window,'touchmove',event => {
+    listen(host,'touchmove',event => {
       if(!touch || event.touches.length!==1 || disabled()){touch=null;release();return;}
       const point=event.touches[0], dx=point.clientX-touch.x, dy=point.clientY-touch.y;
-      if(!touch.claimed && Math.abs(dx)>Math.abs(dy)){touch=null;release();return;}
-      if(!touch.claimed && Math.abs(dy)<2) return;
-      if(!event.cancelable){touch=null;release();return;}
-      event.preventDefault();
-      if(!event.defaultPrevented) return;
+      // Ignore subpixel direction jitter, but cancel the first move before native panning begins.
+      if(!touch.claimed && Math.abs(dx)>=8 && Math.abs(dx)>Math.abs(dy)*1.6){touch=null;release();return;}
+      if(event.cancelable) event.preventDefault();
+      if(!touch.claimed && Math.max(Math.abs(dx),Math.abs(dy))<2) return;
       const delta=touch.lastY-point.clientY, time=now(), elapsed=Math.max(8,time-touch.time);
       const sign=Math.sign(delta);
       if(sign && direction && sign!==direction){release();touch.velocity=0;}
       direction=sign || direction;inputTime=time;
+      if(!event.defaultPrevented){
+        // If the browser already owns this swipe, keep idle checkpoint settling available.
+        touch.native=true;touch.velocity=0;touch.lastY=point.clientY;touch.time=time;
+        armed=true;return;
+      }
       const blocked=stopped();
       touch.claimed=true;
       touch.velocity=blocked?0:.4*touch.velocity+.6*delta/elapsed;
       touch.lastY=point.clientY;touch.time=time;
       if(blocked) return;
-      armed=true;advance(delta);
+      armed=true;
+      if(touch.pending){
+        if(!sign) return;
+        const target=touch.pending, remaining=(target.y-scrollY)*sign;
+        if(sign && remaining>=-2){
+          const distance=Math.max(0,remaining);
+          write(scrollY+sign*Math.min(Math.abs(delta),distance));moved=true;
+          if(Math.abs(delta)>=distance){touch.pending=null;land(target,'input',true);}
+          return;
+        }
+        touch.pending=null;
+      }
+      advance(delta);
     },{passive:false});
     listen(window,'touchend',event => {
       touching=event.touches.length>0;
       if(touching) return;
       const gesture=touch;touch=null;inputTime=now();
       if(stopped()) return;
+      if(gesture?.native){schedule();return;}
       if(!gesture?.claimed){schedule();return;}
       const velocity=Math.max(-5,Math.min(5,gesture.velocity));
       if(Math.abs(velocity)<.12 || now()-gesture.time>90){schedule();return;}
@@ -276,7 +307,33 @@
     },{capture:true});
     listen(window,'hashchange',release);
     listen(window,'popstate',release);
-    listen(window,'resize',()=>{invalidate();served=null;release();});
+    listen(window,'resize',()=>{
+      const width=innerWidth, height=innerHeight;
+      const toolbar=phone() && Math.abs(width-viewportWidth)<2
+        && Math.abs(height-viewportHeight)<Math.max(140,viewportHeight*.25);
+      viewportWidth=width;viewportHeight=height;invalidate();
+      viewportDirty=true;
+      if(!toolbar){release();return;}
+      // Mobile browser chrome changes height during a swipe; it must not cancel the stop.
+      const target=landing || holding;
+      const points=checkpoints();
+      if(target){
+        const updated=points.find(point=>point.key===target.key);
+        if(updated) Object.assign(target,updated);
+      }
+      if(touch?.pending){
+        const updated=points.find(point=>point.key===touch.pending.key);
+        if(updated) Object.assign(touch.pending,updated);
+      }
+      if(served){
+        const updated=points.find(point=>point.key===served.key);
+        if(updated) served={...served,...updated};
+      }
+      if(holding){
+        write(holding.y);refreshViewport(host.sequence);
+        host.sequence?.getTween?.()?.progress(1);
+      }
+    });
     listen(host,'toggle',invalidate,{capture:true});
     listen(window,'blur',()=>{touching=pointerDown=false;touch=null;release();});
     listen(document,'visibilitychange',()=>{touching=pointerDown=false;touch=null;release();});
