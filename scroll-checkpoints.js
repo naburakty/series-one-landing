@@ -1,4 +1,4 @@
-/* Checkpoint-stop trial: decelerate, land, pause briefly, then release. */
+/* Composed checkpoints: brake, settle the scene, hold still, then continue. */
 (() => {
   window.SeriesScrollCheckpoints = (host, { signal, reducedMotion = false } = {}) => {
     if (!host || signal?.aborted) return () => {};
@@ -12,16 +12,34 @@
       || document.hidden || motion.matches || host.reducedMotion || reducedMotion
       || window.Shopify?.designMode || host.querySelector('dialog[open]');
     const phone = () => matchMedia('(max-width:760px), (pointer:coarse)').matches;
-    let timer = 0, frame = 0, momentum = 0, armed = false, moved = false, touching = false, pointerDown = false;
-    let inputTime = 0, scrollTime = 0, direction = 0, lastWheel = 0, lastY = scrollY;
-    let served = null, landing = null, holdUntil = 0, touch = null;
+    let timer = 0, frame = 0, momentum = 0, holdTimer = 0, armed = false, moved = false, touching = false, pointerDown = false;
+    let inputTime = 0, scrollTime = 0, direction = 0, lastY = scrollY;
+    let served = null, landing = null, holding = null, holdUntil = 0, touch = null, savedScrub = null;
     let cachedPoints = null, measuredAt = 0;
     const invalidate = () => { cachedPoints = null; };
-    const cancel = () => {
-      clearTimeout(timer);cancelAnimationFrame(frame);cancelAnimationFrame(momentum);
-      timer = frame = momentum = 0;
+    const emit = (phase, target) => {
+      if(target) host.dispatchEvent(new CustomEvent('series:checkpoint', {
+        bubbles: true, detail: { phase, key: target.key, y: target.y, direction }
+      }));
     };
-    const release = () => { cancel();landing = null;holdUntil = 0;armed = moved = false;direction = 0; };
+    const cancel = () => {
+      clearTimeout(timer);clearTimeout(holdTimer);
+      cancelAnimationFrame(frame);cancelAnimationFrame(momentum);
+      timer = frame = momentum = holdTimer = 0;
+    };
+    const restoreScrub = () => {
+      if(savedScrub){
+        if(host.isConnected && host.sequence===savedScrub.sequence) savedScrub.sequence.scrubDuration(savedScrub.duration);
+        savedScrub=null;
+      }
+    };
+    const release = () => {
+      const interrupted = landing || holding;
+      cancel();landing = holding = served = null;holdUntil = 0;armed = moved = false;direction = 0;
+      restoreScrub();
+      emit('released',interrupted);
+    };
+    const stopped = () => landing || now()<holdUntil;
     const eligible = target => {
       if (disabled() || !(target instanceof Element) || !host.contains(target)) return false;
       if (target.closest('input,textarea,select,[contenteditable="true"],[role="slider"],video,audio')) return false;
@@ -40,7 +58,13 @@
       const points = [], narrow = matchMedia('(max-width:760px)').matches;
       const bounds = (section, selectors) => {
         const elements = selectors ? [...section.querySelectorAll(selectors)] : [section];
-        const boxes = elements.filter(element => element.getClientRects().length).map(element => element.getBoundingClientRect());
+        const boxes = elements.filter(element => element.getClientRects().length).map(element => {
+          const box = element.getBoundingClientRect();
+          // Frame the final revealed position, including while the entrance is still animating.
+          const transform = element.matches('[data-reveal]') && window.DOMMatrixReadOnly
+            ? new DOMMatrixReadOnly(getComputedStyle(element).transform).m42 : 0;
+          return { top: box.top-transform, bottom: box.bottom-transform };
+        });
         if (!boxes.length) return null;
         const top = Math.min(...boxes.map(box => box.top)) + scrollY;
         const bottom = Math.max(...boxes.map(box => box.bottom)) + scrollY;
@@ -65,7 +89,7 @@
       const intro = host.querySelector('.intro-track');
       if (intro && intro.offsetHeight > innerHeight * 1.5) {
         const top = intro.getBoundingClientRect().top + scrollY, travel = intro.offsetHeight - innerHeight;
-        // Finished lighting, hero, macro, system, and the complete four-tool arrangement.
+        // Finished lighting, clipper, trimmer/shaver pair, dryer, and complete collection.
         [.31, .4628, .5852, .7008, .949].forEach(progress => points.push({
           key: `intro-${progress}`, y: clamp(top + travel * progress),
           reading: [.4628,.5852,.7008].includes(progress),
@@ -95,7 +119,10 @@
       add('questions', host.querySelector('.faq-section'));
       points.push({ key: 'footer', y: clamp(host.getBoundingClientRect().bottom + scrollY - innerHeight) });
       measuredAt = now();
-      cachedPoints = points.sort((a, b) => a.y - b.y);
+      cachedPoints = [];
+      points.sort((a,b)=>a.y-b.y).forEach(point=>{
+        if(!cachedPoints.length || point.y-cachedPoints[cachedPoints.length-1].y>6) cachedPoints.push(point);
+      });
       return cachedPoints;
     };
     const maxY = () => Math.max(0,document.documentElement.scrollHeight-innerHeight);
@@ -105,29 +132,52 @@
       return delta>0 ? points[0] : points[points.length-1];
     };
     const land = target => {
-      cancel();armed = false;landing = target;
-      const from = scrollY, started = now();
-      const duration = Math.min(phone()?440:520,Math.max(180,Math.abs(target.y-from)*.75));
+      cancel();armed = moved = false;landing = target;
+      const from = scrollY, started = now(), sequence = host.sequence;
+      if(sequence?.scrubDuration && typeof sequence.vars.scrub==='number'){
+        if(!savedScrub) savedScrub={sequence,duration:sequence.vars.scrub};
+        sequence.scrubDuration(.12);
+      }
+      const duration = Math.min(phone()?560:680,Math.max(300,Math.abs(target.y-from)*.9));
+      emit('approach',target);
       const tick = time => {
         if(disabled() || pointerDown){release();return;}
-        const t = Math.min(1,(time-started)/duration);
-        write(from+(target.y-from)*(1-(1-t)**3));
+        const t = Math.max(0,Math.min(1,(time-started)/duration)), eased = 1-(1-t)**3;
+        write(from+(target.y-from)*eased);
         if(t<1) frame=requestAnimationFrame(tick);
-        else {frame=0;served=target;landing=null;holdUntil=now()+180;}
+        else {
+          frame=0;
+          // Finish the short camera catch-up before starting the still-frame pause.
+          holdTimer=setTimeout(()=>{
+            holdTimer=0;
+            if(disabled() || pointerDown){release();return;}
+            sequence?.getTween?.()?.progress(1);
+            served={...target,direction};landing=null;holding=target;
+            const pause = target.reading ? (phone()?480:560) : (phone()?380:440);
+            holdUntil=now()+pause;
+            emit('stopped',target);
+            holdTimer=setTimeout(()=>{
+              holdTimer=0;holdUntil=0;holding=null;restoreScrub();emit('released',target);
+            },pause);
+          },savedScrub?140:0);
+        }
       };
       frame=requestAnimationFrame(tick);
     };
     const advance = delta => {
-      if(landing || now()<holdUntil) return;
+      if(stopped()) return false;
       const target = targetFor(delta), distance = target ? Math.abs(target.y-scrollY) : Infinity;
-      if(target && distance<=Math.max(28,Math.abs(delta)*1.2)){land(target);return;}
-      const zone = Math.min(innerHeight*.36,280);
-      const gain = distance<zone ? .35+.65*distance/zone : 1;
-      write(scrollY+delta*gain);
+      if(target && distance<=Math.max(34,Math.abs(delta)*1.2)){land(target);return false;}
+      const zone = Math.min(innerHeight*(target?.reading ? .52 : .42),target?.reading?420:340);
+      const gain = distance<zone ? .22+.78*distance/zone : 1;
+      const before=scrollY;
+      write(before+delta*gain);
+      moved=moved || Math.abs(scrollY-before)>.5;
+      return true;
     };
     const settle = () => {
       timer=0;
-      if(!armed || !moved || touching || pointerDown || landing || momentum || disabled()) return;
+      if(!armed || !moved || touching || pointerDown || stopped() || momentum || disabled()) return;
       const quiet=180, idle=now()-Math.max(inputTime,scrollTime);
       if(idle<quiet){timer=setTimeout(settle,quiet-idle);return;}
       const target=targetFor(direction), points=checkpoints();
@@ -143,26 +193,26 @@
       if(disabled() || event.ctrlKey || event.metaKey || !event.deltaY || Math.abs(event.deltaX)>Math.abs(event.deltaY)
         || pointerDown || touching || !eligible(event.target) || event.defaultPrevented){release();return;}
       const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?innerHeight:1), sign=Math.sign(delta);
-      const fresh=now()-lastWheel>160, reverse=direction && sign!==direction;
-      lastWheel=now();
-      if(reverse || fresh) release();
-      if(reverse && served && Math.abs(scrollY-served.y)>4) served=null;
-      cancelAnimationFrame(momentum);momentum=0;
-      direction=sign;inputTime=now();armed=true;clearTimeout(timer);
-      if(!event.cancelable){release();return;}
-      const target=targetFor(delta), distance=target?Math.abs(target.y-scrollY):Infinity;
-      if(landing || now()<holdUntil || distance<=Math.max(Math.min(innerHeight*.36,280),Math.abs(delta)*1.2)){
-        event.preventDefault();
-        if(event.defaultPrevented) advance(delta);
+      if(direction && sign!==direction){
+        release();
       }
-      schedule();
+      if(!event.cancelable){release();return;}
+      event.preventDefault();
+      if(!event.defaultPrevented){release();return;}
+      cancelAnimationFrame(momentum);momentum=0;
+      direction=sign;inputTime=now();clearTimeout(timer);
+      // Same-direction input cannot cancel an arrival or its bounded still frame.
+      if(stopped()) return;
+      armed=true;
+      if(advance(delta)) schedule();
     },{passive:false});
     listen(window,'touchstart',event => {
-      release();touch=null;touching=event.touches.length>0;
-      if(event.touches.length!==1 || !eligible(event.target)) return;
+      cancelAnimationFrame(momentum);momentum=0;clearTimeout(timer);
+      touch=null;touching=event.touches.length>0;
+      if(event.touches.length!==1 || !eligible(event.target)){release();return;}
       const point=event.touches[0];
       touch={x:point.clientX,y:point.clientY,lastY:point.clientY,time:now(),velocity:0,claimed:false};
-      armed=true;inputTime=now();
+      inputTime=now();
     });
     listen(window,'touchmove',event => {
       if(!touch || event.touches.length!==1 || disabled()){touch=null;release();return;}
@@ -174,18 +224,21 @@
       if(!event.defaultPrevented) return;
       const delta=touch.lastY-point.clientY, time=now(), elapsed=Math.max(8,time-touch.time);
       const sign=Math.sign(delta);
-      if(sign && direction && sign!==direction){release();if(served && Math.abs(scrollY-served.y)>4) served=null;}
-      direction=sign || direction;inputTime=time;armed=true;
-      moved=moved || Math.abs(delta)>.5;
-      touch.claimed=true;touch.velocity=.4*touch.velocity+.6*delta/elapsed;
+      if(sign && direction && sign!==direction){release();touch.velocity=0;}
+      direction=sign || direction;inputTime=time;
+      const blocked=stopped();
+      touch.claimed=true;
+      touch.velocity=blocked?0:.4*touch.velocity+.6*delta/elapsed;
       touch.lastY=point.clientY;touch.time=time;
-      advance(delta);
+      if(blocked) return;
+      armed=true;advance(delta);
     },{passive:false});
     listen(window,'touchend',event => {
       touching=event.touches.length>0;
       if(touching) return;
       const gesture=touch;touch=null;inputTime=now();
-      if(!gesture?.claimed || landing || now()<holdUntil){schedule();return;}
+      if(stopped()) return;
+      if(!gesture?.claimed){schedule();return;}
       const velocity=Math.max(-5,Math.min(5,gesture.velocity));
       if(Math.abs(velocity)<.12 || now()-gesture.time>90){schedule();return;}
       const started=now();let previous=started;
@@ -194,7 +247,7 @@
         const speed=velocity*Math.exp(-(time-started)/220), elapsed=Math.min(32,time-previous);previous=time;
         if(Math.abs(speed)<.04 || time-started>1100){momentum=0;schedule();return;}
         advance(speed*elapsed);
-        if(!landing) momentum=requestAnimationFrame(tick);
+        if(!stopped()) momentum=requestAnimationFrame(tick);
       };
       momentum=requestAnimationFrame(tick);
     });
